@@ -1,24 +1,41 @@
-#include <mbed.h>
+#include "mbed.h"
 #include <USBSerial.h>
 
-/*
-  Digital out : créer un port (une broche de sortie)
+// Attention : brancher Vcc sur 5V (Vin)
 
-    - DigitalOut nomvariable(port);
-*/
-DigitalOut led(PA_7);//Ici il y a une led branchée sur le pin 4 de la mapple mini
+DigitalOut usbDisconnect(PB_9);  // USB
 
-DigitalOut usbDisconnect(PB_9);
+DigitalIn  echo(PA_7);           // pin 4 
+DigitalOut trigger(PA_6);        // pin 5
+
+Timer timer;
+
 
 int main()
 {
-    //USBSerial usbSerial;
-    usbDisconnect = 0;//Pour que l'usb soit reconnu avec la mapple mini
+    USBSerial usbSerial;
+    usbDisconnect = 0;
 
-    while (true) {
-         led = 1;//Allumage de la led
-        ThisThread::sleep_for(200);//Attente de 200 millisecondes
-         led = 0;//Extinction de la led
-        ThisThread::sleep_for(200);
+    while(true) {
+
+        timer.reset();//On met à zero le timer
+
+		//Lancement d'un signal de 10us
+        trigger = 1;
+        wait_us(10);
+        trigger = 0;
+
+		//On attend que echo passe sur zero 
+        while (echo==0) {}; 
+        timer.start();//On lance le timer
+
+        while (echo==1) {};//On attend que echo passe sur 1 
+        timer.stop(); //On stop le timer
+
+        int distance = (timer.read_us()*10)/58.0; // calcul de la distance en mm grace au temps final mesuré grace au timer
+
+        usbSerial.printf(" %d mm \r\n",distance); // affichage distance 
+
+        ThisThread::sleep_for(60);
     }
 }
