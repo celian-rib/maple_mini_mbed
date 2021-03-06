@@ -1,41 +1,57 @@
-#include "mbed.h"
+#include <mbed.h>
 #include <USBSerial.h>
+#include "shell.h"
 
-// Attention : brancher Vcc sur 5V (Vin)
+#define ADXL345_ADDR  0xA6
+#define ADXL345_DEVID 0x00
 
-DigitalOut usbDisconnect(PB_9);  // USB
+// L'I2C2 (Broches 0 et 1)
+       // SDA  SCL
+I2C i2c(PB_11, PB_10);
 
-DigitalIn  echo(PA_7);           // pin 4 
-DigitalOut trigger(PA_6);        // pin 5
+DigitalOut usbDisconnect(PB_9);
 
-Timer timer;
+uint8_t adxl345_read_byte(uint8_t register_addr)
+{
+  char cmd[1];
+  cmd[0] = register_addr;
+  i2c.write(ADXL345_ADDR, cmd, 1); // On écrit l'adresse du registre à lire (0x00 = DEVID)
+  i2c.read(ADXL345_ADDR, cmd, 1); // On lit un octet (l'esclave parle et remplit le tableau)
+
+  return cmd[0];
+}
+
+SHELL_COMMAND(devid, "Lis DEVID")
+{
+  shell_println((int)adxl345_read_byte(ADXL345_DEVID)); // 229
+}
+
+// SHELL_COMMAND(devid, "Valeurs")
+// {
+//   char cmd[1];
+//   while(1) {
+//     cmd[0] = 0x01;
+//     cmd[1] = ADXL345_DEVID;
+//     i2c.write(ADXL345_ADDR, cmd, 2);
+
+//     ThisThread::sleep_for(500ms);
+
+//     cmd[0] = 0x00
+//     i2c.write(ADXL345_ADDR, cmd, 1);
+//     i2C.read(ADXL345_ADDR, cmd, 2);
+
+//     float tmp = (float((cmd[0]<<8)|cmd[1]));
+//     shell_println(tmp);
+//   }
+// }
 
 
 int main()
 {
-    USBSerial usbSerial;
+    shell_init_usb();
     usbDisconnect = 0;
 
-    while(true) {
-
-        timer.reset();//On met à zero le timer
-
-		//Lancement d'un signal de 10us
-        trigger = 1;
-        wait_us(10);
-        trigger = 0;
-
-		//On attend que echo passe sur zero 
-        while (echo==0) {}; 
-        timer.start();//On lance le timer
-
-        while (echo==1) {};//On attend que echo passe sur 1 
-        timer.stop(); //On stop le timer
-
-        int distance = (timer.read_us()*10)/58.0; // calcul de la distance en mm grace au temps final mesuré grace au timer
-
-        usbSerial.printf(" %d mm \r\n",distance); // affichage distance 
-
-        ThisThread::sleep_for(60);
+    while (true) {
+        ThisThread::sleep_for(10);
     }
 }
